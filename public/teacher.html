@@ -5,6 +5,97 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Teacher Dashboard — Law Quiz Live</title>
   <link rel="stylesheet" href="style.css">
+  <style>
+    /* ── End Quiz Button: always visible as a floating bar ── */
+    .end-quiz-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: linear-gradient(180deg, transparent 0%, rgba(10,10,26,0.95) 30%);
+      padding: 18px 20px 22px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 999;
+      gap: 14px;
+    }
+    .end-quiz-bar .btn-end-quiz {
+      background: linear-gradient(135deg, #6c1420, #a11530);
+      color: #ffcdd2;
+      border: 2px solid #e94560;
+      padding: 12px 28px;
+      border-radius: 12px;
+      font-size: 0.95rem;
+      font-weight: 700;
+      font-family: 'Inter', sans-serif;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      letter-spacing: 0.5px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .end-quiz-bar .btn-end-quiz:hover {
+      background: linear-gradient(135deg, #8b1a2b, #c0183a);
+      box-shadow: 0 0 30px rgba(233, 69, 96, 0.5);
+      transform: translateY(-2px);
+    }
+    .end-quiz-bar .quiz-progress {
+      color: var(--text-muted);
+      font-size: 0.8rem;
+      font-weight: 500;
+      letter-spacing: 1px;
+    }
+    /* Confirmation modal */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.75);
+      z-index: 10000;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-overlay.active {
+      display: flex;
+    }
+    .modal-box {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 36px 32px;
+      max-width: 440px;
+      width: 90%;
+      text-align: center;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+      animation: fadeIn 0.2s ease;
+    }
+    .modal-box .modal-icon {
+      font-size: 3rem;
+      margin-bottom: 14px;
+    }
+    .modal-box h3 {
+      font-size: 1.3rem;
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+    .modal-box p {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      margin-bottom: 24px;
+      line-height: 1.5;
+    }
+    .modal-box .btn-group {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+    }
+    /* Extra bottom padding so content isn't hidden behind floating bar */
+    .container {
+      padding-bottom: 100px;
+    }
+  </style>
 </head>
 <body>
   <div class="header">
@@ -33,7 +124,7 @@
           <span class="badge badge-info" id="lobby-badge">LOBBY</span>
         </div>
         <p style="color: var(--text-muted); margin-bottom: 16px;">
-          Tell students to open <strong>student.html</strong> on their phone or laptop and enter their name.
+          Tell students to open the <strong>student link</strong> on their phone and enter their name.
           <br>They'll appear below as they join.
         </p>
         <div class="players-grid" id="players-grid"></div>
@@ -64,7 +155,6 @@
         </div>
         <div class="question-text" id="q-text">Question goes here</div>
 
-        <!-- MCQ options shown on teacher screen too -->
         <div class="options-grid" id="teacher-options" style="display:none;"></div>
 
         <div class="answer-counter">
@@ -106,7 +196,6 @@
         </div>
       </div>
 
-      <!-- Mini leaderboard after results -->
       <div class="card">
         <div class="card-header">
           <span class="card-title">&#127942; Current Standings (Top 10)</span>
@@ -137,7 +226,8 @@
         <h2 style="font-family: 'Playfair Display', serif; font-size: 2.5rem; margin-bottom: 10px;">
           Quiz Complete!
         </h2>
-        <p style="color: var(--text-muted); margin-bottom: 30px;">Final Results — Comprehensive Review Units 1&ndash;5</p>
+        <p style="color: var(--text-muted); margin-bottom: 8px;">Final Results &mdash; Comprehensive Review Units 1&ndash;5</p>
+        <p style="color: var(--text-muted); font-size: 0.85rem;" id="finished-stats"></p>
       </div>
       <div class="leaderboard">
         <div class="leaderboard-title">&#127942; Final Leaderboard</div>
@@ -150,29 +240,56 @@
 
   </div>
 
+  <!-- ═══════════ FLOATING END QUIZ BAR (visible during quiz) ═══════════ -->
+  <div class="end-quiz-bar" id="end-quiz-bar" style="display: none;">
+    <span class="quiz-progress" id="quiz-progress-text">Q1 / 60</span>
+    <button class="btn-end-quiz" id="btn-end-quiz-now">
+      &#9724; End Quiz Now
+    </button>
+  </div>
+
+  <!-- ═══════════ CONFIRMATION MODAL ═══════════ -->
+  <div class="modal-overlay" id="modal-end-quiz">
+    <div class="modal-box">
+      <div class="modal-icon">&#9888;&#65039;</div>
+      <h3>End Quiz Early?</h3>
+      <p>
+        This will stop the quiz immediately and show the <strong>Final Leaderboard</strong> to all students.
+        <br><br>
+        <span id="modal-progress-info" style="color: var(--accent-glow); font-weight: 600;"></span>
+      </p>
+      <div class="btn-group">
+        <button class="btn btn-outline" id="btn-cancel-end">Cancel</button>
+        <button class="btn btn-accent" id="btn-confirm-end">&#9724; Yes, End Quiz</button>
+      </div>
+    </div>
+  </div>
+
   <script src="/socket.io/socket.io.js"></script>
   <script>
     const socket = io();
     socket.emit('teacher:join');
 
-    // ── Screen management ──
     const screens = document.querySelectorAll('.screen');
     function showScreen(id) {
       screens.forEach(s => s.classList.remove('active'));
       document.getElementById(id).classList.add('active');
+
+      // Show/hide the floating End Quiz bar
+      const bar = document.getElementById('end-quiz-bar');
+      const quizActive = ['screen-question', 'screen-results', 'screen-leaderboard'].includes(id);
+      bar.style.display = quizActive ? 'flex' : 'none';
     }
 
-    // ── State ──
     let totalQuestions = 60;
+    let currentQuestionNum = 0;
     let currentTimeLimit = 20;
 
-    // ── Colors for player avatars ──
     const avatarColors = [
       '#e94560','#667eea','#2ecc71','#f5c542','#3498db',
       '#e67e22','#9b59b6','#1abc9c','#e74c3c','#2980b9',
       '#f39c12','#8e44ad','#16a085','#c0392b','#27ae60'
     ];
-
     function getAvatarColor(name) {
       let hash = 0;
       for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
@@ -194,7 +311,6 @@
 
     socket.on('game:playerLeft', (data) => {
       document.getElementById('lobby-count').textContent = data.playerCount;
-      // Rebuild chips
     });
 
     socket.on('game:playerCount', (data) => {
@@ -222,10 +338,7 @@
       chip.className = 'player-chip';
       chip.id = 'chip-' + id;
       const color = getAvatarColor(name);
-      chip.innerHTML = `
-        <div class="avatar" style="background:${color}">${name.charAt(0).toUpperCase()}</div>
-        <span>${name}</span>
-      `;
+      chip.innerHTML = `<div class="avatar" style="background:${color}">${name.charAt(0).toUpperCase()}</div><span>${name}</span>`;
       grid.appendChild(chip);
     }
 
@@ -237,6 +350,9 @@
     // ── Question ──
     socket.on('game:question', (q) => {
       showScreen('screen-question');
+      currentQuestionNum = q.questionNumber;
+      currentTimeLimit = q.timeLimit;
+
       document.getElementById('q-num').textContent = q.questionNumber;
       document.getElementById('q-total').textContent = q.totalQuestions;
       document.getElementById('q-number-display').textContent = `Question ${q.questionNumber} of ${q.totalQuestions}`;
@@ -244,7 +360,9 @@
       document.getElementById('q-points').textContent = q.points + ' pts';
       document.getElementById('q-text').textContent = q.question;
       document.getElementById('answer-count').textContent = '0';
-      currentTimeLimit = q.timeLimit;
+
+      // Update floating bar progress
+      document.getElementById('quiz-progress-text').textContent = `Q${q.questionNumber} / ${q.totalQuestions}`;
 
       const optionsDiv = document.getElementById('teacher-options');
       if (q.type === 'mcq' && q.options) {
@@ -266,20 +384,13 @@
       const t = data.timeRemaining;
       const timerEl = document.getElementById('teacher-timer');
       const barEl = document.getElementById('teacher-timer-bar');
-
       timerEl.textContent = t;
       const pct = (t / currentTimeLimit) * 100;
       barEl.style.width = pct + '%';
-
       timerEl.className = 'timer-display';
       barEl.className = 'timer-bar-fill';
-      if (t <= 5) {
-        timerEl.classList.add('danger');
-        barEl.classList.add('danger');
-      } else if (t <= 10) {
-        timerEl.classList.add('warning');
-        barEl.classList.add('warning');
-      }
+      if (t <= 5) { timerEl.classList.add('danger'); barEl.classList.add('danger'); }
+      else if (t <= 10) { timerEl.classList.add('warning'); barEl.classList.add('warning'); }
     });
 
     socket.on('game:answerCount', (data) => {
@@ -287,19 +398,19 @@
       document.getElementById('answer-total').textContent = data.total;
     });
 
-    // ── End Question / Show Results ──
+    // ── End question ──
     document.getElementById('btn-end-question').addEventListener('click', () => {
       socket.emit('teacher:showResults');
     });
 
+    // ── Results ──
     socket.on('game:results', (data) => {
       showScreen('screen-results');
-      document.getElementById('r-qnum').textContent = document.getElementById('q-num').textContent;
+      document.getElementById('r-qnum').textContent = currentQuestionNum;
       document.getElementById('r-correct-answer').textContent = data.correctAnswer;
       document.getElementById('r-correct-count').textContent = data.stats.correctCount;
       document.getElementById('r-wrong-count').textContent = data.stats.totalAnswered - data.stats.correctCount;
       document.getElementById('r-no-answer-count').textContent = data.stats.totalPlayers - data.stats.totalAnswered;
-
       renderLeaderboard('results-leaderboard', data.leaderboard.slice(0, 10));
     });
 
@@ -325,6 +436,8 @@
     // ── Finished ──
     socket.on('game:finished', (data) => {
       showScreen('screen-finished');
+      document.getElementById('finished-stats').textContent =
+        `Completed ${currentQuestionNum} of ${totalQuestions} questions`;
       renderLeaderboard('final-leaderboard', data.leaderboard);
       launchConfetti('confetti-canvas-final');
     });
@@ -334,9 +447,34 @@
       socket.emit('teacher:startGame');
     });
 
-    // ── Reset ──
     socket.on('game:reset', () => {
       showScreen('screen-lobby');
+    });
+
+    // ============================================================
+    //  END QUIZ NOW — with confirmation modal
+    // ============================================================
+    const modal = document.getElementById('modal-end-quiz');
+
+    document.getElementById('btn-end-quiz-now').addEventListener('click', () => {
+      // Show how many questions completed in the modal
+      document.getElementById('modal-progress-info').textContent =
+        `You are on question ${currentQuestionNum} of ${totalQuestions}.`;
+      modal.classList.add('active');
+    });
+
+    document.getElementById('btn-cancel-end').addEventListener('click', () => {
+      modal.classList.remove('active');
+    });
+
+    document.getElementById('btn-confirm-end').addEventListener('click', () => {
+      modal.classList.remove('active');
+      socket.emit('teacher:endQuiz');
+    });
+
+    // Close modal on overlay click
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) modal.classList.remove('active');
     });
 
     // ── Leaderboard renderer ──
@@ -347,13 +485,11 @@
         const item = document.createElement('div');
         item.className = 'leaderboard-item';
         item.style.animationDelay = (index * 0.08) + 's';
-
         let rankClass = index >= 3 ? 'default' : '';
         let medal = '';
         if (index === 0) medal = '&#129351;';
         else if (index === 1) medal = '&#129352;';
         else if (index === 2) medal = '&#129353;';
-
         item.innerHTML = `
           <div class="leaderboard-rank ${rankClass}">${medal || (index + 1)}</div>
           <div class="leaderboard-name">${player.name}</div>
@@ -370,24 +506,18 @@
       const ctx = canvas.getContext('2d');
       canvas.width = window.innerWidth;
       canvas.height = window.innerHeight;
-
       const particles = [];
-      const colors = ['#f5c542', '#e94560', '#667eea', '#2ecc71', '#3498db', '#9b59b6', '#ff6b81'];
-
+      const colors = ['#f5c542','#e94560','#667eea','#2ecc71','#3498db','#9b59b6','#ff6b81'];
       for (let i = 0; i < 150; i++) {
         particles.push({
           x: Math.random() * canvas.width,
           y: Math.random() * canvas.height - canvas.height,
-          w: Math.random() * 10 + 5,
-          h: Math.random() * 6 + 3,
+          w: Math.random() * 10 + 5, h: Math.random() * 6 + 3,
           color: colors[Math.floor(Math.random() * colors.length)],
-          speedY: Math.random() * 3 + 2,
-          speedX: (Math.random() - 0.5) * 2,
-          rotation: Math.random() * 360,
-          rotSpeed: (Math.random() - 0.5) * 10
+          speedY: Math.random() * 3 + 2, speedX: (Math.random() - 0.5) * 2,
+          rotation: Math.random() * 360, rotSpeed: (Math.random() - 0.5) * 10
         });
       }
-
       let frame = 0;
       function animate() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -396,12 +526,9 @@
           ctx.translate(p.x, p.y);
           ctx.rotate(p.rotation * Math.PI / 180);
           ctx.fillStyle = p.color;
-          ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+          ctx.fillRect(-p.w/2, -p.h/2, p.w, p.h);
           ctx.restore();
-
-          p.y += p.speedY;
-          p.x += p.speedX;
-          p.rotation += p.rotSpeed;
+          p.y += p.speedY; p.x += p.speedX; p.rotation += p.rotSpeed;
         });
         frame++;
         if (frame < 200) requestAnimationFrame(animate);

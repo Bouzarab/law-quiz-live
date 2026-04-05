@@ -471,6 +471,21 @@ io.on('connection', (socket) => {
     io.emit('game:leaderboard', { leaderboard: getLeaderboard() });
   });
 
+  // ─── END QUIZ at any time ───
+  socket.on('teacher:endQuiz', () => {
+    // Stop any running timer
+    if (gameState.timerInterval) clearInterval(gameState.timerInterval);
+
+    // If we're in the middle of a question, score whatever answers came in
+    if (gameState.phase === 'question') {
+      showResults();
+    }
+
+    // Now end the game
+    gameState.phase = 'finished';
+    io.emit('game:finished', { leaderboard: getLeaderboard() });
+  });
+
   function showResults() {
     gameState.phase = 'results';
     const q = questions[gameState.currentQuestionIndex];
