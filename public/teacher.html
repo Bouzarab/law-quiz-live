@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Teacher Dashboard — Law Quiz Live</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="header">
+    <h1>&#9878; Law Quiz Live</h1>
+    <div class="subtitle">Teacher Dashboard &mdash; Comprehensive Review Units 1&ndash;5</div>
+  </div>
+
+  <div class="container">
+
+    <!-- ═══════════ LOBBY SCREEN ═══════════ -->
+    <div id="screen-lobby" class="screen active">
+      <div class="controls-bar">
+        <div class="info">
+          <span>&#128101; Students joined: <span class="count" id="lobby-count">0</span></span>
+        </div>
+        <div class="btn-group">
+          <button class="btn btn-accent btn-lg" id="btn-start-quiz" disabled>
+            &#9654; Start Quiz
+          </button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">&#127979; Waiting for Students to Join...</span>
+          <span class="badge badge-info" id="lobby-badge">LOBBY</span>
+        </div>
+        <p style="color: var(--text-muted); margin-bottom: 16px;">
+          Tell students to open <strong>student.html</strong> on their phone or laptop and enter their name.
+          <br>They'll appear below as they join.
+        </p>
+        <div class="players-grid" id="players-grid"></div>
+      </div>
+    </div>
+
+    <!-- ═══════════ QUESTION SCREEN ═══════════ -->
+    <div id="screen-question" class="screen">
+      <div class="controls-bar">
+        <div class="info">
+          <span>&#128221; Q<span id="q-num">1</span> / <span id="q-total">60</span></span>
+          <span>&#128101; <span class="count" id="q-player-count">0</span> students</span>
+        </div>
+        <div class="btn-group">
+          <button class="btn btn-accent" id="btn-end-question">&#9632; End &amp; Show Results</button>
+        </div>
+      </div>
+
+      <div class="card question-panel">
+        <div class="question-meta">
+          <span class="question-number" id="q-number-display">Question 1 of 60</span>
+          <span class="question-category" id="q-category">Part 1</span>
+          <span class="question-points" id="q-points">10 pts</span>
+        </div>
+        <div class="timer-display" id="teacher-timer">20</div>
+        <div class="timer-bar">
+          <div class="timer-bar-fill" id="teacher-timer-bar" style="width: 100%"></div>
+        </div>
+        <div class="question-text" id="q-text">Question goes here</div>
+
+        <!-- MCQ options shown on teacher screen too -->
+        <div class="options-grid" id="teacher-options" style="display:none;"></div>
+
+        <div class="answer-counter">
+          Answers received: <span class="count" id="answer-count">0</span> / <span id="answer-total">0</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════ RESULTS SCREEN ═══════════ -->
+    <div id="screen-results" class="screen">
+      <div class="controls-bar">
+        <div class="info">
+          <span>&#128200; Results for Question <span id="r-qnum">1</span></span>
+        </div>
+        <div class="btn-group">
+          <button class="btn btn-gold" id="btn-show-leaderboard">&#127942; Show Leaderboard</button>
+          <button class="btn btn-primary" id="btn-next-question">&#9654; Next Question</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="correct-answer-display">
+          Correct Answer: <strong id="r-correct-answer"></strong>
+        </div>
+
+        <div class="stats-bar">
+          <div class="stat-item">
+            <div class="stat-value" style="color: var(--success)" id="r-correct-count">0</div>
+            <div class="stat-label">Correct</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-value" style="color: var(--danger)" id="r-wrong-count">0</div>
+            <div class="stat-label">Wrong</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-value" style="color: var(--text-muted)" id="r-no-answer-count">0</div>
+            <div class="stat-label">No Answer</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Mini leaderboard after results -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">&#127942; Current Standings (Top 10)</span>
+        </div>
+        <div class="leaderboard" id="results-leaderboard"></div>
+      </div>
+    </div>
+
+    <!-- ═══════════ LEADERBOARD SCREEN ═══════════ -->
+    <div id="screen-leaderboard" class="screen">
+      <div class="controls-bar">
+        <div class="btn-group">
+          <button class="btn btn-primary" id="btn-next-from-lb">&#9654; Next Question</button>
+        </div>
+      </div>
+      <canvas id="confetti-canvas"></canvas>
+      <div class="leaderboard">
+        <div class="leaderboard-title">&#127942; Leaderboard</div>
+        <div id="full-leaderboard"></div>
+      </div>
+    </div>
+
+    <!-- ═══════════ FINISHED SCREEN ═══════════ -->
+    <div id="screen-finished" class="screen">
+      <canvas id="confetti-canvas-final"></canvas>
+      <div style="text-align: center; padding: 40px 0;">
+        <div style="font-size: 4rem; margin-bottom: 16px;">&#127942;&#127881;&#9878;&#65039;</div>
+        <h2 style="font-family: 'Playfair Display', serif; font-size: 2.5rem; margin-bottom: 10px;">
+          Quiz Complete!
+        </h2>
+        <p style="color: var(--text-muted); margin-bottom: 30px;">Final Results — Comprehensive Review Units 1&ndash;5</p>
+      </div>
+      <div class="leaderboard">
+        <div class="leaderboard-title">&#127942; Final Leaderboard</div>
+        <div id="final-leaderboard"></div>
+      </div>
+      <div style="text-align: center; margin-top: 30px;">
+        <button class="btn btn-accent btn-lg" id="btn-restart">&#128260; Restart Quiz</button>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    socket.emit('teacher:join');
+
+    // ── Screen management ──
+    const screens = document.querySelectorAll('.screen');
+    function showScreen(id) {
+      screens.forEach(s => s.classList.remove('active'));
+      document.getElementById(id).classList.add('active');
+    }
+
+    // ── State ──
+    let totalQuestions = 60;
+    let currentTimeLimit = 20;
+
+    // ── Colors for player avatars ──
+    const avatarColors = [
+      '#e94560','#667eea','#2ecc71','#f5c542','#3498db',
+      '#e67e22','#9b59b6','#1abc9c','#e74c3c','#2980b9',
+      '#f39c12','#8e44ad','#16a085','#c0392b','#27ae60'
+    ];
+
+    function getAvatarColor(name) {
+      let hash = 0;
+      for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+      return avatarColors[Math.abs(hash) % avatarColors.length];
+    }
+
+    // ── Lobby ──
+    socket.on('game:state', (data) => {
+      totalQuestions = data.totalQuestions;
+      document.getElementById('q-total').textContent = totalQuestions;
+      updateLobbyPlayers(data.players);
+    });
+
+    socket.on('game:playerJoined', (data) => {
+      addPlayerChip(data.id, data.name);
+      document.getElementById('lobby-count').textContent = data.playerCount;
+      document.getElementById('btn-start-quiz').disabled = data.playerCount < 1;
+    });
+
+    socket.on('game:playerLeft', (data) => {
+      document.getElementById('lobby-count').textContent = data.playerCount;
+      // Rebuild chips
+    });
+
+    socket.on('game:playerCount', (data) => {
+      document.getElementById('lobby-count').textContent = data.count;
+      document.getElementById('q-player-count').textContent = data.count;
+      document.getElementById('answer-total').textContent = data.count;
+      document.getElementById('btn-start-quiz').disabled = data.count < 1;
+    });
+
+    function updateLobbyPlayers(players) {
+      const grid = document.getElementById('players-grid');
+      grid.innerHTML = '';
+      let count = 0;
+      for (let id in players) {
+        count++;
+        addPlayerChip(id, players[id].name);
+      }
+      document.getElementById('lobby-count').textContent = count;
+      document.getElementById('btn-start-quiz').disabled = count < 1;
+    }
+
+    function addPlayerChip(id, name) {
+      const grid = document.getElementById('players-grid');
+      const chip = document.createElement('div');
+      chip.className = 'player-chip';
+      chip.id = 'chip-' + id;
+      const color = getAvatarColor(name);
+      chip.innerHTML = `
+        <div class="avatar" style="background:${color}">${name.charAt(0).toUpperCase()}</div>
+        <span>${name}</span>
+      `;
+      grid.appendChild(chip);
+    }
+
+    // ── Start Quiz ──
+    document.getElementById('btn-start-quiz').addEventListener('click', () => {
+      socket.emit('teacher:nextQuestion');
+    });
+
+    // ── Question ──
+    socket.on('game:question', (q) => {
+      showScreen('screen-question');
+      document.getElementById('q-num').textContent = q.questionNumber;
+      document.getElementById('q-total').textContent = q.totalQuestions;
+      document.getElementById('q-number-display').textContent = `Question ${q.questionNumber} of ${q.totalQuestions}`;
+      document.getElementById('q-category').textContent = q.category;
+      document.getElementById('q-points').textContent = q.points + ' pts';
+      document.getElementById('q-text').textContent = q.question;
+      document.getElementById('answer-count').textContent = '0';
+      currentTimeLimit = q.timeLimit;
+
+      const optionsDiv = document.getElementById('teacher-options');
+      if (q.type === 'mcq' && q.options) {
+        optionsDiv.style.display = 'grid';
+        optionsDiv.innerHTML = '';
+        const letters = ['A', 'B', 'C', 'D'];
+        q.options.forEach((opt, i) => {
+          const btn = document.createElement('div');
+          btn.className = 'option-btn';
+          btn.innerHTML = `<span class="option-letter">${letters[i]}</span><span>${opt}</span>`;
+          optionsDiv.appendChild(btn);
+        });
+      } else {
+        optionsDiv.style.display = 'none';
+      }
+    });
+
+    socket.on('game:timer', (data) => {
+      const t = data.timeRemaining;
+      const timerEl = document.getElementById('teacher-timer');
+      const barEl = document.getElementById('teacher-timer-bar');
+
+      timerEl.textContent = t;
+      const pct = (t / currentTimeLimit) * 100;
+      barEl.style.width = pct + '%';
+
+      timerEl.className = 'timer-display';
+      barEl.className = 'timer-bar-fill';
+      if (t <= 5) {
+        timerEl.classList.add('danger');
+        barEl.classList.add('danger');
+      } else if (t <= 10) {
+        timerEl.classList.add('warning');
+        barEl.classList.add('warning');
+      }
+    });
+
+    socket.on('game:answerCount', (data) => {
+      document.getElementById('answer-count').textContent = data.count;
+      document.getElementById('answer-total').textContent = data.total;
+    });
+
+    // ── End Question / Show Results ──
+    document.getElementById('btn-end-question').addEventListener('click', () => {
+      socket.emit('teacher:showResults');
+    });
+
+    socket.on('game:results', (data) => {
+      showScreen('screen-results');
+      document.getElementById('r-qnum').textContent = document.getElementById('q-num').textContent;
+      document.getElementById('r-correct-answer').textContent = data.correctAnswer;
+      document.getElementById('r-correct-count').textContent = data.stats.correctCount;
+      document.getElementById('r-wrong-count').textContent = data.stats.totalAnswered - data.stats.correctCount;
+      document.getElementById('r-no-answer-count').textContent = data.stats.totalPlayers - data.stats.totalAnswered;
+
+      renderLeaderboard('results-leaderboard', data.leaderboard.slice(0, 10));
+    });
+
+    // ── Leaderboard ──
+    document.getElementById('btn-show-leaderboard').addEventListener('click', () => {
+      socket.emit('teacher:showLeaderboard');
+    });
+
+    socket.on('game:leaderboard', (data) => {
+      showScreen('screen-leaderboard');
+      renderLeaderboard('full-leaderboard', data.leaderboard);
+      launchConfetti('confetti-canvas');
+    });
+
+    document.getElementById('btn-next-question').addEventListener('click', () => {
+      socket.emit('teacher:nextQuestion');
+    });
+
+    document.getElementById('btn-next-from-lb').addEventListener('click', () => {
+      socket.emit('teacher:nextQuestion');
+    });
+
+    // ── Finished ──
+    socket.on('game:finished', (data) => {
+      showScreen('screen-finished');
+      renderLeaderboard('final-leaderboard', data.leaderboard);
+      launchConfetti('confetti-canvas-final');
+    });
+
+    document.getElementById('btn-restart').addEventListener('click', () => {
+      showScreen('screen-lobby');
+      socket.emit('teacher:startGame');
+    });
+
+    // ── Reset ──
+    socket.on('game:reset', () => {
+      showScreen('screen-lobby');
+    });
+
+    // ── Leaderboard renderer ──
+    function renderLeaderboard(containerId, leaderboard) {
+      const container = document.getElementById(containerId);
+      container.innerHTML = '';
+      leaderboard.forEach((player, index) => {
+        const item = document.createElement('div');
+        item.className = 'leaderboard-item';
+        item.style.animationDelay = (index * 0.08) + 's';
+
+        let rankClass = index >= 3 ? 'default' : '';
+        let medal = '';
+        if (index === 0) medal = '&#129351;';
+        else if (index === 1) medal = '&#129352;';
+        else if (index === 2) medal = '&#129353;';
+
+        item.innerHTML = `
+          <div class="leaderboard-rank ${rankClass}">${medal || (index + 1)}</div>
+          <div class="leaderboard-name">${player.name}</div>
+          <div class="leaderboard-score">${player.score}</div>
+        `;
+        container.appendChild(item);
+      });
+    }
+
+    // ── Confetti ──
+    function launchConfetti(canvasId) {
+      const canvas = document.getElementById(canvasId);
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+
+      const particles = [];
+      const colors = ['#f5c542', '#e94560', '#667eea', '#2ecc71', '#3498db', '#9b59b6', '#ff6b81'];
+
+      for (let i = 0; i < 150; i++) {
+        particles.push({
+          x: Math.random() * canvas.width,
+          y: Math.random() * canvas.height - canvas.height,
+          w: Math.random() * 10 + 5,
+          h: Math.random() * 6 + 3,
+          color: colors[Math.floor(Math.random() * colors.length)],
+          speedY: Math.random() * 3 + 2,
+          speedX: (Math.random() - 0.5) * 2,
+          rotation: Math.random() * 360,
+          rotSpeed: (Math.random() - 0.5) * 10
+        });
+      }
+
+      let frame = 0;
+      function animate() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        particles.forEach(p => {
+          ctx.save();
+          ctx.translate(p.x, p.y);
+          ctx.rotate(p.rotation * Math.PI / 180);
+          ctx.fillStyle = p.color;
+          ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+          ctx.restore();
+
+          p.y += p.speedY;
+          p.x += p.speedX;
+          p.rotation += p.rotSpeed;
+        });
+        frame++;
+        if (frame < 200) requestAnimationFrame(animate);
+        else ctx.clearRect(0, 0, canvas.width, canvas.height);
+      }
+      animate();
+    }
+  </script>
+</body>
+</html>
