@@ -460,15 +460,30 @@
       }
     });
 
-    // ── Kick toast notification ──
+    // ── Kick toast notification (manual) ──
     socket.on('game:playerKicked', (data) => {
       document.getElementById('lobby-count').textContent = data.playerCount;
-      const chip = document.querySelectorAll('.player-chip');
-      // Show toast
       const toast = document.getElementById('kick-toast');
       toast.textContent = `${data.name} was removed from the quiz`;
       toast.classList.add('show');
       setTimeout(() => toast.classList.remove('show'), 3000);
+    });
+
+    // ── Auto-kick toast notification (tab switch) ──
+    socket.on('game:playerAutoKicked', (data) => {
+      document.getElementById('lobby-count').textContent = data.playerCount;
+      // Remove their chip
+      const chips = document.querySelectorAll('.player-chip');
+      chips.forEach(chip => {
+        if (chip.querySelector('span') && chip.querySelector('span').textContent === data.name) {
+          chip.remove();
+        }
+      });
+      // Show toast with different message
+      const toast = document.getElementById('kick-toast');
+      toast.textContent = `⚠ ${data.name} was auto-removed (left the tab)`;
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 4000);
     });
 
     // ── Start Quiz ──

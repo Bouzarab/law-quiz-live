@@ -109,17 +109,18 @@
 
   <!-- ═══════════ FOCUS WARNING OVERLAY ═══════════ -->
   <div class="focus-warning" id="focus-warning">
-    <div class="warn-icon">&#128683;</div>
-    <h2>Return to the Quiz!</h2>
-    <p>The quiz is hidden because you left this tab. Please come back to continue answering.</p>
-    <div class="warn-count" id="focus-warn-count"></div>
+    <div class="warn-icon">&#9888;&#65039;</div>
+    <h2>WARNING</h2>
+    <p>If you leave this tab or switch apps during the quiz, you will be <strong style="color:#e94560;">immediately removed</strong> from the session.</p>
+    <div class="warn-count" id="focus-warn-count">Stay on this page at all times!</div>
   </div>
 
   <!-- ═══════════ KICKED SCREEN ═══════════ -->
   <div class="kicked-screen" id="kicked-screen">
     <div class="kick-icon">&#128683;</div>
     <h2>You Have Been Removed</h2>
-    <p>The teacher has removed you from this quiz session.</p>
+    <p id="kicked-reason">The teacher has removed you from this quiz session.</p>
+    <p style="margin-top: 16px; color: #555; font-size: 0.85rem;">Contact your teacher if you think this was a mistake.</p>
   </div>
 
   <div class="container student-container">
@@ -463,7 +464,6 @@
     // ── Kicked by teacher ──
     socket.on('student:kicked', () => {
       document.getElementById('kicked-screen').classList.add('active');
-      // Disconnect socket
       socket.disconnect();
     });
 
@@ -471,79 +471,100 @@
     //  ANTI-CHEAT PROTECTIONS
     // ============================================================
 
-    let focusWarnings = 0;
+    let hasJoined = false;
+    let isKicked = false;
     const focusWarningEl = document.getElementById('focus-warning');
     const focusWarnCountEl = document.getElementById('focus-warn-count');
 
-    // 1. Detect tab switch / app switch (visibility change)
+    // Track when the student has actually joined the game
+    const origStudentJoined = socket.listeners('student:joined');
+    socket.on('student:joined', () => { hasJoined = true; });
+
+    function autoKick(reason) {
+      if (isKicked || !hasJoined) return;
+      isKicked = true;
+
+      // Tell the server to remove this player
+      socket.emit('student:tabSwitch');
+
+      // Show kicked screen immediately
+      document.body.classList.add('blurred-content');
+      focusWarningEl.classList.remove('active');
+      const kickedScreen = document.getElementById('kicked-screen');
+      document.getElementById('kicked-reason').textContent = reason;
+      kickedScreen.classList.add('active');
+
+      socket.disconnect();
+    }
+
+    // 1. Tab switch / app switch → instant kick
     document.addEventListener('visibilitychange', () => {
-      if (document.hidden) {
-        focusWarnings++;
-        document.body.classList.add('blurred-content');
-        focusWarningEl.classList.add('active');
-        focusWarnCountEl.textContent = `Tab switches detected: ${focusWarnings}`;
-      } else {
-        document.body.classList.remove('blurred-content');
-        focusWarningEl.classList.remove('active');
+      if (document.hidden && hasJoined && !isKicked) {
+        autoKick('You switched tabs or left the app during the quiz.');
       }
     });
 
-    // 2. Detect window blur (overlay apps like ChatGPT, split screen)
+    // 2. Window blur (overlay apps, split screen, ChatGPT bubble) → instant kick
     window.addEventListener('blur', () => {
-      focusWarnings++;
-      document.body.classList.add('blurred-content');
-      focusWarningEl.classList.add('active');
-      focusWarnCountEl.textContent = `Tab switches detected: ${focusWarnings}`;
-    });
-
-    window.addEventListener('focus', () => {
-      document.body.classList.remove('blurred-content');
-      focusWarningEl.classList.remove('active');
+      if (hasJoined && !isKicked) {
+        autoKick('You opened another app or window during the quiz.');
+      }
     });
 
     // 3. Block keyboard shortcuts for screenshots & dev tools
     document.addEventListener('keydown', (e) => {
-      // PrintScreen
       if (e.key === 'PrintScreen') {
         e.preventDefault();
         navigator.clipboard.writeText('').catch(() => {});
+        if (hasJoined) autoKick('Screenshot attempt detected.');
       }
-      // Ctrl+Shift+I / Ctrl+Shift+J / Ctrl+U / F12 (dev tools)
-      if (e.key === 'F12') e.preventDefault();
-      if (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'i')) e.preventDefault();
-      if (e.ctrlKey && e.shiftKey && (e.key === 'J' || e.key === 'j')) e.preventDefault();
-      if (e.ctrlKey && (e.key === 'U' || e.key === 'u')) e.preventDefault();
-      // Ctrl+S (save page)
-      if (e.ctrlKey && (e.key === 'S' || e.key === 's')) e.preventDefault();
-      // Ctrl+P (print)
-      if (e.ctrlKey && (e.key === 'P' || e.key === 'p')) e.preventDefault();
-      // Ctrl+C / Ctrl+A (copy / select all)
-      if (e.ctrlKey && (e.key === 'C' || e.key === 'c')) e.preventDefault();
-      if (e.ctrlKey && (e.key === 'A' || e.key === 'a')) e.preventDefault();
-      // Cmd variants for Mac
-      if (e.metaKey && e.shiftKey && (e.key === '3' || e.key === '4' || e.key === '5')) e.preventDefault();
+      if (e.key === 'F12') { e.preventDefault(); return; }
+      if (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'i')) { e.preventDefault(); return; }
+      if (e.ctrlKey && e.shiftKey && (e.key === 'J' || e.key === 'j')) { e.preventDefault(); return; }
+      if (e.ctrlKey && (e.key === 'U' || e.key === 'u')) { e.preventDefault(); return; }
+      if (e.ctrlKey && (e.key === 'S' || e.key === 's')) { e.preventDefault(); return; }
+      if (e.ctrlKey && (e.key === 'P' || e.key === 'p')) { e.preventDefault(); return; }
+      if (e.ctrlKey && (e.key === 'C' || e.key === 'c')) { e.preventDefault(); return; }
+      if (e.ctrlKey && (e.key === 'A' || e.key === 'a')) { e.preventDefault(); return; }
+      if (e.metaKey && e.shiftKey && (e.key === '3' || e.key === '4' || e.key === '5')) { e.preventDefault(); return; }
     });
 
-    // 4. Block right-click context menu
+    // 4. Block right-click
     document.addEventListener('contextmenu', (e) => e.preventDefault());
 
-    // 5. Block drag (prevents dragging content to other apps)
+    // 5. Block drag
     document.addEventListener('dragstart', (e) => e.preventDefault());
 
-    // 6. Detect Screen Capture API (if browser supports it)
+    // 6. Block Screen Capture API
     if (navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) {
-      const origGetDisplayMedia = navigator.mediaDevices.getDisplayMedia.bind(navigator.mediaDevices);
       navigator.mediaDevices.getDisplayMedia = function() {
-        focusWarnings++;
-        focusWarnCountEl.textContent = `Tab switches detected: ${focusWarnings}`;
+        if (hasJoined) autoKick('Screen recording attempt detected.');
         return Promise.reject(new Error('Screen capture blocked'));
       };
     }
 
-    // 7. CSS protection: hide content from print
+    // 7. Block print
     const printStyle = document.createElement('style');
     printStyle.textContent = '@media print { body { display: none !important; } }';
     document.head.appendChild(printStyle);
+
+    // 8. Continuously wipe clipboard every second (defeats delayed screenshot paste)
+    setInterval(() => {
+      if (hasJoined && !isKicked) {
+        navigator.clipboard.writeText('').catch(() => {});
+      }
+    }, 1000);
+
+    // 9. Detect if DevTools is open via debugger timing
+    setInterval(() => {
+      if (!hasJoined || isKicked) return;
+      const start = performance.now();
+      debugger;
+      const end = performance.now();
+      if (end - start > 100) {
+        autoKick('Developer tools detected.');
+      }
+    }, 3000);
 
     // ── Confetti ──
     function launchConfetti(canvasId) {

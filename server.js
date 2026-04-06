@@ -568,6 +568,19 @@ io.on('connection', (socket) => {
     }
   });
 
+  // ─── Auto-kick: student switched tab/app ───
+  socket.on('student:tabSwitch', () => {
+    if (gameState.players[socket.id]) {
+      const name = gameState.players[socket.id].name;
+      delete gameState.players[socket.id];
+      delete gameState.currentAnswers[socket.id];
+      io.to('teachers').emit('game:playerAutoKicked', { name, playerCount: getPlayerCount() });
+      io.emit('game:playerCount', { count: getPlayerCount() });
+      console.log(`AUTO-KICKED (tab switch): ${name} (${socket.id})`);
+      socket.disconnect(true);
+    }
+  });
+
   socket.on('student:answer', (data) => {
     if (gameState.phase !== 'question') return;
     if (gameState.currentAnswers[socket.id]) return;
