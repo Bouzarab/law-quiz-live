@@ -5,11 +5,121 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Join Quiz — Law Quiz Live</title>
   <link rel="stylesheet" href="style.css">
+  <style>
+    /* ── Anti-screenshot & anti-overlay protection ── */
+
+    /* Prevent text/image selection (makes screenshot tools less useful) */
+    body {
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      user-select: none;
+      -webkit-touch-callout: none;
+    }
+
+    /* Blur content when window loses focus (student switches app / overlay detected) */
+    body.blurred-content .container,
+    body.blurred-content .header,
+    body.blurred-content .my-score {
+      filter: blur(20px) brightness(0.3);
+      pointer-events: none;
+      transition: filter 0.15s ease;
+    }
+
+    /* Warning overlay when tab/app is not focused */
+    .focus-warning {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(10, 10, 26, 0.97);
+      z-index: 99999;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      text-align: center;
+      padding: 40px;
+    }
+    .focus-warning.active {
+      display: flex;
+    }
+    .focus-warning .warn-icon {
+      font-size: 4rem;
+      margin-bottom: 20px;
+    }
+    .focus-warning h2 {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.8rem;
+      color: #e94560;
+      margin-bottom: 12px;
+    }
+    .focus-warning p {
+      color: var(--text-muted);
+      font-size: 1rem;
+      max-width: 400px;
+      line-height: 1.6;
+    }
+    .focus-warning .warn-count {
+      margin-top: 20px;
+      padding: 8px 20px;
+      background: rgba(233, 69, 96, 0.15);
+      border: 1px solid rgba(233, 69, 96, 0.3);
+      border-radius: 10px;
+      color: #ff6b81;
+      font-weight: 700;
+      font-size: 0.9rem;
+    }
+
+    /* Kicked screen */
+    .kicked-screen {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: var(--bg-dark);
+      z-index: 999999;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      text-align: center;
+      padding: 40px;
+    }
+    .kicked-screen.active {
+      display: flex;
+    }
+    .kicked-screen .kick-icon {
+      font-size: 4rem;
+      margin-bottom: 16px;
+    }
+    .kicked-screen h2 {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.8rem;
+      color: #e94560;
+      margin-bottom: 10px;
+    }
+    .kicked-screen p {
+      color: var(--text-muted);
+      font-size: 1rem;
+    }
+  </style>
 </head>
 <body>
   <div class="header">
     <h1>&#9878; Law Quiz Live</h1>
     <div class="subtitle">Comprehensive Review &mdash; Units 1&ndash;5</div>
+  </div>
+
+  <!-- ═══════════ FOCUS WARNING OVERLAY ═══════════ -->
+  <div class="focus-warning" id="focus-warning">
+    <div class="warn-icon">&#128683;</div>
+    <h2>Return to the Quiz!</h2>
+    <p>The quiz is hidden because you left this tab. Please come back to continue answering.</p>
+    <div class="warn-count" id="focus-warn-count"></div>
+  </div>
+
+  <!-- ═══════════ KICKED SCREEN ═══════════ -->
+  <div class="kicked-screen" id="kicked-screen">
+    <div class="kick-icon">&#128683;</div>
+    <h2>You Have Been Removed</h2>
+    <p>The teacher has removed you from this quiz session.</p>
   </div>
 
   <div class="container student-container">
@@ -349,6 +459,91 @@
         container.appendChild(item);
       });
     }
+
+    // ── Kicked by teacher ──
+    socket.on('student:kicked', () => {
+      document.getElementById('kicked-screen').classList.add('active');
+      // Disconnect socket
+      socket.disconnect();
+    });
+
+    // ============================================================
+    //  ANTI-CHEAT PROTECTIONS
+    // ============================================================
+
+    let focusWarnings = 0;
+    const focusWarningEl = document.getElementById('focus-warning');
+    const focusWarnCountEl = document.getElementById('focus-warn-count');
+
+    // 1. Detect tab switch / app switch (visibility change)
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        focusWarnings++;
+        document.body.classList.add('blurred-content');
+        focusWarningEl.classList.add('active');
+        focusWarnCountEl.textContent = `Tab switches detected: ${focusWarnings}`;
+      } else {
+        document.body.classList.remove('blurred-content');
+        focusWarningEl.classList.remove('active');
+      }
+    });
+
+    // 2. Detect window blur (overlay apps like ChatGPT, split screen)
+    window.addEventListener('blur', () => {
+      focusWarnings++;
+      document.body.classList.add('blurred-content');
+      focusWarningEl.classList.add('active');
+      focusWarnCountEl.textContent = `Tab switches detected: ${focusWarnings}`;
+    });
+
+    window.addEventListener('focus', () => {
+      document.body.classList.remove('blurred-content');
+      focusWarningEl.classList.remove('active');
+    });
+
+    // 3. Block keyboard shortcuts for screenshots & dev tools
+    document.addEventListener('keydown', (e) => {
+      // PrintScreen
+      if (e.key === 'PrintScreen') {
+        e.preventDefault();
+        navigator.clipboard.writeText('').catch(() => {});
+      }
+      // Ctrl+Shift+I / Ctrl+Shift+J / Ctrl+U / F12 (dev tools)
+      if (e.key === 'F12') e.preventDefault();
+      if (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'i')) e.preventDefault();
+      if (e.ctrlKey && e.shiftKey && (e.key === 'J' || e.key === 'j')) e.preventDefault();
+      if (e.ctrlKey && (e.key === 'U' || e.key === 'u')) e.preventDefault();
+      // Ctrl+S (save page)
+      if (e.ctrlKey && (e.key === 'S' || e.key === 's')) e.preventDefault();
+      // Ctrl+P (print)
+      if (e.ctrlKey && (e.key === 'P' || e.key === 'p')) e.preventDefault();
+      // Ctrl+C / Ctrl+A (copy / select all)
+      if (e.ctrlKey && (e.key === 'C' || e.key === 'c')) e.preventDefault();
+      if (e.ctrlKey && (e.key === 'A' || e.key === 'a')) e.preventDefault();
+      // Cmd variants for Mac
+      if (e.metaKey && e.shiftKey && (e.key === '3' || e.key === '4' || e.key === '5')) e.preventDefault();
+    });
+
+    // 4. Block right-click context menu
+    document.addEventListener('contextmenu', (e) => e.preventDefault());
+
+    // 5. Block drag (prevents dragging content to other apps)
+    document.addEventListener('dragstart', (e) => e.preventDefault());
+
+    // 6. Detect Screen Capture API (if browser supports it)
+    if (navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) {
+      const origGetDisplayMedia = navigator.mediaDevices.getDisplayMedia.bind(navigator.mediaDevices);
+      navigator.mediaDevices.getDisplayMedia = function() {
+        focusWarnings++;
+        focusWarnCountEl.textContent = `Tab switches detected: ${focusWarnings}`;
+        return Promise.reject(new Error('Screen capture blocked'));
+      };
+    }
+
+    // 7. CSS protection: hide content from print
+    const printStyle = document.createElement('style');
+    printStyle.textContent = '@media print { body { display: none !important; } }';
+    document.head.appendChild(printStyle);
 
     // ── Confetti ──
     function launchConfetti(canvasId) {

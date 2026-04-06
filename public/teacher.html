@@ -6,6 +6,60 @@
   <title>Teacher Dashboard — Law Quiz Live</title>
   <link rel="stylesheet" href="style.css">
   <style>
+    /* ── Kick button on player chips ── */
+    .player-chip {
+      position: relative;
+    }
+    .player-chip .kick-btn {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      border: none;
+      background: rgba(231, 76, 60, 0.3);
+      color: #e74c3c;
+      font-size: 0.7rem;
+      font-weight: 800;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+      margin-left: 4px;
+      line-height: 1;
+    }
+    .player-chip .kick-btn:hover {
+      background: #e74c3c;
+      color: white;
+      transform: scale(1.15);
+    }
+    /* ── Kick confirmation modal ── */
+    .modal-overlay.kick-modal .modal-box {
+      max-width: 380px;
+    }
+    .kick-name {
+      color: var(--accent-glow);
+      font-weight: 700;
+    }
+    /* ── Kick toast notification ── */
+    .kick-toast {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-100px);
+      background: linear-gradient(135deg, #6c1420, #a11530);
+      border: 1px solid #e94560;
+      color: #ffcdd2;
+      padding: 12px 24px;
+      border-radius: 12px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      z-index: 10001;
+      transition: transform 0.4s ease;
+      pointer-events: none;
+    }
+    .kick-toast.show {
+      transform: translateX(-50%) translateY(0);
+    }
     /* ── End Quiz Button: always visible as a floating bar ── */
     .end-quiz-bar {
       position: fixed;
@@ -248,6 +302,25 @@
     </button>
   </div>
 
+  <!-- ═══════════ KICK PLAYER MODAL ═══════════ -->
+  <div class="modal-overlay kick-modal" id="modal-kick-player">
+    <div class="modal-box">
+      <div class="modal-icon">&#128683;</div>
+      <h3>Remove Student?</h3>
+      <p>
+        Remove <span class="kick-name" id="kick-player-name"></span> from the quiz?
+        <br><br>They will be disconnected immediately.
+      </p>
+      <div class="btn-group">
+        <button class="btn btn-outline" id="btn-cancel-kick">Cancel</button>
+        <button class="btn btn-accent" id="btn-confirm-kick">&#128683; Remove</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ KICK TOAST ═══════════ -->
+  <div class="kick-toast" id="kick-toast"></div>
+
   <!-- ═══════════ CONFIRMATION MODAL ═══════════ -->
   <div class="modal-overlay" id="modal-end-quiz">
     <div class="modal-box">
@@ -334,13 +407,69 @@
 
     function addPlayerChip(id, name) {
       const grid = document.getElementById('players-grid');
+      // Remove existing chip if duplicate
+      const existing = document.getElementById('chip-' + id);
+      if (existing) existing.remove();
+
       const chip = document.createElement('div');
       chip.className = 'player-chip';
       chip.id = 'chip-' + id;
       const color = getAvatarColor(name);
-      chip.innerHTML = `<div class="avatar" style="background:${color}">${name.charAt(0).toUpperCase()}</div><span>${name}</span>`;
+      chip.innerHTML = `
+        <div class="avatar" style="background:${color}">${name.charAt(0).toUpperCase()}</div>
+        <span>${name}</span>
+        <button class="kick-btn" title="Remove ${name}" data-id="${id}" data-name="${name}">&times;</button>
+      `;
+      chip.querySelector('.kick-btn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        openKickModal(id, name);
+      });
       grid.appendChild(chip);
     }
+
+    // ── Kick player logic ──
+    let pendingKickId = null;
+    const kickModal = document.getElementById('modal-kick-player');
+
+    function openKickModal(id, name) {
+      pendingKickId = id;
+      document.getElementById('kick-player-name').textContent = name;
+      kickModal.classList.add('active');
+    }
+
+    document.getElementById('btn-cancel-kick').addEventListener('click', () => {
+      pendingKickId = null;
+      kickModal.classList.remove('active');
+    });
+
+    document.getElementById('btn-confirm-kick').addEventListener('click', () => {
+      if (pendingKickId) {
+        socket.emit('teacher:kickPlayer', { playerId: pendingKickId });
+        // Remove chip immediately
+        const chip = document.getElementById('chip-' + pendingKickId);
+        if (chip) chip.remove();
+        pendingKickId = null;
+      }
+      kickModal.classList.remove('active');
+    });
+
+    kickModal.addEventListener('click', (e) => {
+      if (e.target === kickModal) {
+        pendingKickId = null;
+        kickModal.classList.remove('active');
+      }
+    });
+
+    // ── Kick toast notification ──
+    socket.on('game:playerKicked', (data) => {
+      document.getElementById('lobby-count').textContent = data.playerCount;
+      const chip = document.querySelectorAll('.player-chip');
+      // Show toast
+      const toast = document.getElementById('kick-toast');
+      toast.textContent = `${data.name} was removed from the quiz`;
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 3000);
+    });
 
     // ── Start Quiz ──
     document.getElementById('btn-start-quiz').addEventListener('click', () => {
@@ -494,7 +623,11 @@
           <div class="leaderboard-rank ${rankClass}">${medal || (index + 1)}</div>
           <div class="leaderboard-name">${player.name}</div>
           <div class="leaderboard-score">${player.score}</div>
+          <button class="kick-btn" title="Remove ${player.name}" style="flex-shrink:0;">&times;</button>
         `;
+        item.querySelector('.kick-btn').addEventListener('click', () => {
+          openKickModal(player.id, player.name);
+        });
         container.appendChild(item);
       });
     }

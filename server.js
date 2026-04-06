@@ -471,6 +471,25 @@ io.on('connection', (socket) => {
     io.emit('game:leaderboard', { leaderboard: getLeaderboard() });
   });
 
+  // ─── KICK/ELIMINATE a student ───
+  socket.on('teacher:kickPlayer', (data) => {
+    const targetId = data.playerId;
+    if (gameState.players[targetId]) {
+      const name = gameState.players[targetId].name;
+      delete gameState.players[targetId];
+      delete gameState.currentAnswers[targetId];
+      // Tell the kicked student
+      io.to(targetId).emit('student:kicked', { reason: 'Removed by teacher' });
+      // Force disconnect their socket
+      const targetSocket = io.sockets.sockets.get(targetId);
+      if (targetSocket) targetSocket.disconnect(true);
+      // Update everyone
+      io.to('teachers').emit('game:playerKicked', { name, playerCount: getPlayerCount() });
+      io.emit('game:playerCount', { count: getPlayerCount() });
+      console.log(`KICKED: ${name} (${targetId})`);
+    }
+  });
+
   // ─── END QUIZ at any time ───
   socket.on('teacher:endQuiz', () => {
     // Stop any running timer
